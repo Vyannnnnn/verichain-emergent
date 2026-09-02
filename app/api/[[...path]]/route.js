@@ -6,6 +6,7 @@ import { generateNextCertificateNumber } from '@/lib/certificate'
 import { generateCertificateQRCode } from '@/lib/qrcode'
 import { issueCertificateOnChain, verifyCertificateOnChain, getBlockchainStatus } from '@/lib/blockchain'
 import { StudentSchema, CertificateIssueSchema, LoginSchema } from '@/lib/validations'
+import { sendCertificateEmail, getResendClient } from '@/lib/email'
 
 // Helper function to handle CORS
 function handleCORS(response) {
@@ -486,11 +487,40 @@ async function handleRoute(request, { params }) {
       await certsCol.insertOne(newCertificate)
       const { _id, ...createdCert } = newCertificate
 
+      // 6. Send Email Notification to Graduate (non-blocking)
+      let emailResult = { skipped: true }
+      try {
+        emailResult = await sendCertificateEmail(newCertificate)
+
+        // Log email event to MongoDB
+        const emailLogsCol = await getCollection('email_logs')
+        await emailLogsCol.insertOne({
+          id: uuidv4(),
+          certificateId: newCertificate.id,
+          certificateNumber: newCertificate.certificateNumber,
+          recipientEmail: newCertificate.studentEmail,
+          recipientName: newCertificate.studentName,
+          status: emailResult.success ? 'sent' : (emailResult.skipped ? 'skipped' : 'failed'),
+          resendId: emailResult.emailId || null,
+          error: emailResult.error || null,
+          createdAt: new Date()
+        })
+      } catch (emailErr) {
+        console.error('[Certificate API] Email notification error (non-blocking):', emailErr.message)
+      }
+
       return handleCORS(NextResponse.json({
         success: true,
         message: 'Sertifikat berhasil diterbitkan dan dicatat di blockchain!',
         certificate: createdCert,
-        blockchainReceipt: blockchainResult
+        blockchainReceipt: blockchainResult,
+        emailNotification: {
+          sent: emailResult.success || false,
+          skipped: emailResult.skipped || false,
+          recipientEmail: emailResult.success ? newCertificate.studentEmail : undefined,
+          emailId: emailResult.emailId || undefined,
+          error: emailResult.error || undefined
+        }
       }, { status: 201 }))
     }
 
@@ -530,9 +560,13 @@ async function handleRoute(request, { params }) {
       const totalCertificates = await certsCol.countDocuments()
       const blockchain = await getBlockchainStatus()
 
+      const emailLogsCol = await getCollection('email_logs')
+      const totalEmailsSent = await emailLogsCol.countDocuments({ status: 'sent' })
+
       return handleCORS(NextResponse.json({
         totalStudents,
         totalCertificates,
+        totalEmailsSent,
         institutionsCount: 48,
         accuracyRate: '100%',
         blockchainStatus: blockchain.isConnected ? 'ONLINE' : 'ACTIVE_SIMULATED',
@@ -540,6 +574,115 @@ async function handleRoute(request, { params }) {
         contractAddress: blockchain.contractAddress,
         walletAddress: blockchain.walletAddress
       }))
+    }
+
+    // ==========================================
+    // 6. EMAIL NOTIFICATION ROUTES
+    // ==========================================
+
+    // GET /api/email/logs — List email notification logs
+    if (route === '/email/logs' && method === 'GET') {
+      const emailLogsCol = await getCollection('email_logs')
+      const logs = await emailLogsCol.find({}).sort({ createdAt: -1 }).limit(50).toArray()
+      const sanitized = logs.map(({ _id, ...rest }) => rest)
+      return handleCORS(NextResponse.json(sanitized))
+    }
+
+    // POST /api/email/resend/:certificateId — Resend notification email for a certificate
+    if (route.startsWith('/email/resend/') && method === 'POST') {
+      const certId = route.split('/')[3]
+      
+      const cert = await certsCol.findOne({
+        $or: [{ id: certId }, { certificateNumber: certId }]
+      })
+      
+      if (!cert) {
+        return handleCORS(NextResponse.json({ error: 'Sertifikat tidak ditemukan' }, { status: 404 }))
+      }
+
+      const emailResult = await sendCertificateEmail(cert)
+
+      // Log resend event
+      const emailLogsCol = await getCollection('email_logs')
+      await emailLogsCol.insertOne({
+        id: uuidv4(),
+        certificateId: cert.id,
+        certificateNumber: cert.certificateNumber,
+        recipientEmail: cert.studentEmail,
+        recipientName: cert.studentName,
+        status: emailResult.success ? 'sent' : (emailResult.skipped ? 'skipped' : 'failed'),
+        resendId: emailResult.emailId || null,
+        error: emailResult.error || null,
+        type: 'resend',
+        createdAt: new Date()
+      })
+
+      if (emailResult.success) {
+        return handleCORS(NextResponse.json({
+          success: true,
+          message: `Email berhasil dikirim ulang ke ${cert.studentEmail}`,
+          emailId: emailResult.emailId
+        }))
+      }
+
+      return handleCORS(NextResponse.json({
+        success: false,
+        message: emailResult.skipped
+          ? 'Email tidak dapat dikirim: RESEND_API_KEY belum dikonfigurasi'
+          : `Gagal mengirim email: ${emailResult.error}`,
+        error: emailResult.error
+      }, { status: emailResult.skipped ? 503 : 500 }))
+    }
+
+    // POST /api/email/test — Send a test email to verify configuration
+    if (route === '/email/test' && method === 'POST') {
+      const body = await request.json()
+      const testEmail = body.email
+
+      if (!testEmail) {
+        return handleCORS(NextResponse.json({ error: 'Email tujuan diperlukan' }, { status: 400 }))
+      }
+
+      const resendClient = getResendClient()
+      if (!resendClient) {
+        return handleCORS(NextResponse.json({
+          success: false,
+          error: 'RESEND_API_KEY belum dikonfigurasi. Tambahkan ke file .env dan restart server.'
+        }, { status: 503 }))
+      }
+
+      try {
+        const fromAddress = process.env.RESEND_FROM || 'VeriChain Academic <onboarding@resend.dev>'
+        const { data, error } = await resendClient.emails.send({
+          from: fromAddress,
+          to: [testEmail],
+          subject: '✅ VeriChain Academic — Test Email Berhasil',
+          html: `<div style="font-family:Arial,sans-serif;padding:32px;text-align:center;">
+            <h1 style="color:#16a34a;">✅ Konfigurasi Email Berhasil!</h1>
+            <p>Ini adalah email percobaan dari VeriChain Academic.</p>
+            <p style="color:#64748b;">Email service Resend telah terkonfigurasi dengan benar.</p>
+          </div>`,
+          text: 'VeriChain Academic - Test Email Berhasil. Email service Resend telah terkonfigurasi dengan benar.'
+        })
+
+        if (error) {
+          return handleCORS(NextResponse.json({
+            success: false,
+            error: error.message
+          }, { status: 500 }))
+        }
+
+        return handleCORS(NextResponse.json({
+          success: true,
+          message: `Test email berhasil dikirim ke ${testEmail}`,
+          emailId: data?.id
+        }))
+      } catch (err) {
+        return handleCORS(NextResponse.json({
+          success: false,
+          error: err.message
+        }, { status: 500 }))
+      }
     }
 
     // POST /api/seed (Reset / force seed)

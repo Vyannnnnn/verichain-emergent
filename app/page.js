@@ -8,7 +8,7 @@ import {
   Plus, Trash2, Edit3, ArrowRight, RefreshCw, LogIn, LogOut,
   LayoutDashboard, FileText, Activity, AlertTriangle, Printer,
   Eye, Sparkles, Building2, ChevronRight, Hash, Database,
-  Share2, Download, Info
+  Share2, Download, Info, Mail, Send, Loader2
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -67,6 +67,7 @@ export function App() {
 
   const [selectedCertificateDetail, setSelectedCertificateDetail] = useState(null)
   const [qrModalCert, setQrModalCert] = useState(null)
+  const [isResendingEmail, setIsResendingEmail] = useState(false)
 
   // Login Form State
   const [loginForm, setLoginForm] = useState({ email: 'admin@verichain.ac.id', password: 'admin123' })
@@ -351,7 +352,17 @@ export function App() {
       if (res.ok && data.success) {
         setIssueStep(4) // 4: Done
         await new Promise(r => setTimeout(r, 600))
-        toast.success(`Sertifikat ${data.certificate.certificateNumber} berhasil diterbitkan di Blockchain!`)
+        
+        // Show certificate success + email notification status
+        const emailInfo = data.emailNotification
+        if (emailInfo?.sent) {
+          toast.success(`Sertifikat ${data.certificate.certificateNumber} berhasil diterbitkan! 📧 Email notifikasi dikirim ke ${emailInfo.recipientEmail}`)
+        } else if (emailInfo?.skipped) {
+          toast.success(`Sertifikat ${data.certificate.certificateNumber} berhasil diterbitkan di Blockchain!`)
+        } else {
+          toast.success(`Sertifikat ${data.certificate.certificateNumber} berhasil diterbitkan! ⚠️ Email notifikasi gagal dikirim`)
+        }
+        
         setIsIssueModalOpen(false)
         setIssueStep(0)
         setSelectedCertificateDetail(data.certificate)
@@ -371,6 +382,28 @@ export function App() {
 
   const handlePrintCertificate = () => {
     window.print()
+  }
+
+  const handleResendEmail = async (cert) => {
+    if (!cert?.id && !cert?.certificateNumber) return
+    setIsResendingEmail(true)
+    try {
+      const certIdentifier = cert.id || cert.certificateNumber
+      const res = await fetch(`/api/email/resend/${certIdentifier}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      })
+      const data = await res.json()
+      if (res.ok && data.success) {
+        toast.success(`📧 ${data.message}`)
+      } else {
+        toast.error(data.message || data.error || 'Gagal mengirim ulang email')
+      }
+    } catch (err) {
+      toast.error('Terjadi kesalahan saat mengirim email')
+    } finally {
+      setIsResendingEmail(false)
+    }
   }
 
   // Filtered lists
@@ -1393,6 +1426,13 @@ export function App() {
                                 <QrCode className="w-3.5 h-3.5" />
                               </button>
                               <button
+                                onClick={() => handleResendEmail(cert)}
+                                title="Kirim Email Notifikasi"
+                                className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-emerald-400"
+                              >
+                                <Mail className="w-3.5 h-3.5" />
+                              </button>
+                              <button
                                 onClick={() => handleVerify(cert.certificateNumber)}
                                 title="Verifikasi Publik"
                                 className="p-1.5 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300"
@@ -1632,6 +1672,13 @@ export function App() {
                                 className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-indigo-400"
                               >
                                 <QrCode className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => handleResendEmail(cert)}
+                                title="Kirim Email Notifikasi"
+                                className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-emerald-400"
+                              >
+                                <Mail className="w-3.5 h-3.5" />
                               </button>
                               <button
                                 onClick={() => handleVerify(cert.certificateNumber)}
@@ -2057,6 +2104,18 @@ export function App() {
             </div>
 
             <div className="flex items-center justify-end gap-3">
+              <button
+                onClick={() => handleResendEmail(selectedCertificateDetail)}
+                disabled={isResendingEmail}
+                className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold flex items-center gap-2 transition-colors"
+              >
+                {isResendingEmail ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Mail className="w-4 h-4" />
+                )}
+                {isResendingEmail ? 'Mengirim...' : 'Kirim Email ke Lulusan'}
+              </button>
               <button
                 onClick={() => {
                   setSelectedCertificateDetail(null)

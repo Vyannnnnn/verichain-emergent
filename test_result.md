@@ -437,3 +437,62 @@ frontend:
 agent_communication:
   - agent: "main"
     message: "Fixed cold-start race in lib/db.js (single memoized connection promise instead of naive `if (!client)`). Manually verified via browser that ALL previously flagged flows (valid verify, invalid verify, admin login) now work end-to-end. Marking landing, dual verification, and admin login as working=true."
+
+  - agent: "main"
+    message: "Implemented Email Notification feature for certificate minting. Added lib/email.js with Resend integration (graceful degradation if API key missing). Added 3 new endpoints: GET /api/email/logs, POST /api/email/resend/:certId, POST /api/email/test. Updated POST /api/certificates to send email after successful mint and log to email_logs collection. Updated frontend with Mail button in cert table and detail modal. Requesting backend testing."
+
+backend:
+  - task: "Email Notification on Certificate Mint"
+    implemented: true
+    working: true
+    file: "/app/lib/email.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Implemented sendCertificateEmail in lib/email.js, integrated into POST /api/certificates, added GET /api/email/logs, POST /api/email/resend/:certId, POST /api/email/test. Graceful degradation when RESEND_API_KEY is missing."
+      - working: true
+        agent: "testing"
+        comment: "Backend test passed. POST /api/certificates returns emailNotification field with sent=false, skipped=true when RESEND_API_KEY not configured. Email logs are created properly with status='skipped'. Certificate CERT-2026-0005 issued successfully with email integration. GET /api/stats includes totalEmailsSent field (value: 0)."
+
+  - task: "Email Resend & Logs API"
+    implemented: true
+    working: true
+    file: "/app/app/api/[[...path]]/route.js"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "GET /api/email/logs returns email log history, POST /api/email/resend/:certId resends email for existing certificate, POST /api/email/test sends test email."
+      - working: true
+        agent: "testing"
+        comment: "All email endpoints tested successfully. GET /api/email/logs returns array with proper structure (id, certificateNumber, recipientEmail, recipientName, status, createdAt). POST /api/email/resend/CERT-2026-0001 returns 503 with proper error message about missing API key. POST /api/email/resend/NONEXISTENT returns 404. POST /api/email/test returns 400 when no email provided, 503 when no API key configured. All regression tests passed (verify, students, certificates endpoints working correctly)."
+
+test_plan:
+  current_focus: []
+
+
+agent_communication:
+  - agent: "testing"
+    message: "Email Notification System backend testing completed successfully. All endpoints working as designed with proper graceful degradation when RESEND_API_KEY is not configured. Certificate issuance includes emailNotification field in response. Email logs are being created properly. Stats endpoint includes totalEmailsSent field. All regression tests passed. No critical issues found."
+
+## Backend Test Run 2026-09-02 (Email Notification System)
+- Executed `/app/backend_test.py` against Email Notification endpoints
+- All 15 test cases passed successfully:
+  * POST /api/email/test: Returns 400 when no email provided, 503 when no API key configured
+  * POST /api/email/resend/CERT-2026-0001: Returns 503 with proper error message (no API key)
+  * POST /api/email/resend/NONEXISTENT: Returns 404 correctly
+  * GET /api/email/logs: Returns array with 2 log entries, proper structure verified
+  * POST /api/certificates: Issued CERT-2026-0005 with emailNotification field (sent=false, skipped=true)
+  * GET /api/stats: Includes totalEmailsSent field (value: 0)
+  * Regression tests: All existing endpoints (verify, students, certificates) working correctly
+- Email notification system demonstrates proper graceful degradation when RESEND_API_KEY is not configured
+- Email logs collection is working properly with status='skipped' entries
+- No critical backend issues found
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
