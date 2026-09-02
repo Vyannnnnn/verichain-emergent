@@ -11,6 +11,7 @@ import {
   Share2, Download, Info, Mail, Send, Loader2
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { downloadCertificatePDF, downloadQRCodeImage } from '@/lib/certificate-download'
 
 export function App() {
   // Navigation & View State: 'home' | 'verify' | 'login' | 'dashboard' | 'students' | 'certificates' | 'blockchain'
@@ -2103,28 +2104,35 @@ export function App() {
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-3">
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <button
+                onClick={() => downloadCertificatePDF(selectedCertificateDetail)}
+                className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold flex items-center gap-2 transition-colors border border-slate-700"
+              >
+                <Download className="w-4 h-4" />
+                Download PDF
+              </button>
               <button
                 onClick={() => handleResendEmail(selectedCertificateDetail)}
                 disabled={isResendingEmail}
-                className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold flex items-center gap-2 transition-colors"
+                className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold flex items-center gap-2 transition-colors"
               >
                 {isResendingEmail ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
                 ) : (
                   <Mail className="w-4 h-4" />
                 )}
-                {isResendingEmail ? 'Mengirim...' : 'Kirim Email ke Lulusan'}
+                {isResendingEmail ? 'Mengirim...' : 'Email Lulusan'}
               </button>
               <button
                 onClick={() => {
                   setSelectedCertificateDetail(null)
                   handleVerify(selectedCertificateDetail.certificateNumber)
                 }}
-                className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center gap-2"
+                className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center gap-2"
               >
                 <FileCheck className="w-4 h-4" />
-                Buka di Portal Verifikasi
+                Portal Verifikasi
               </button>
             </div>
           </div>
@@ -2169,6 +2177,20 @@ export function App() {
               >
                 <Copy className="w-4 h-4" />
                 Salin Tautan Verifikasi
+              </button>
+              <button
+                onClick={() => downloadQRCodeImage(qrModalCert)}
+                className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold flex items-center justify-center gap-2 border border-slate-700"
+              >
+                <Download className="w-4 h-4" />
+                Download QR Code (PNG)
+              </button>
+              <button
+                onClick={() => downloadCertificatePDF(qrModalCert)}
+                className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold flex items-center justify-center gap-2 border border-slate-700"
+              >
+                <FileText className="w-4 h-4" />
+                Download Sertifikat (PDF)
               </button>
             </div>
           </div>

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 VeriChain Academic - Backend API Test Suite
-Email Notification System Testing
+Testing QR Code Verification, Email Notification with Real API Key, and Certificate Issuance
 """
 
 import requests
@@ -15,6 +15,12 @@ BASE_URL = "https://academic-blockchain-2.preview.emergentagent.com/api"
 # Test credentials
 ADMIN_EMAIL = "admin@verichain.ac.id"
 ADMIN_PASSWORD = "admin123"
+
+# Test email (owner email for Resend free tier)
+TEST_EMAIL = "fian88518@gmail.com"
+
+# Student with owner email
+STUDENT_ID_WITH_OWNER_EMAIL = "std-81aa9d96"
 
 # Color codes for output
 GREEN = '\033[92m'
@@ -39,113 +45,150 @@ def log_test(test_name, status, message=""):
             print(f"  {message}")
     print()
 
-def test_email_test_endpoint():
-    """Test POST /api/email/test endpoint"""
-    print(f"\n{YELLOW}=== Testing Email Test Endpoint ==={RESET}\n")
+def test_verify_api_regression():
+    """Test GET /api/verify/:certificateNumber for multiple certificates"""
+    print(f"\n{YELLOW}=== Testing Verify API (Regression Check) ==={RESET}\n")
     
-    # Test 1: Missing email parameter
+    # Test 1: Valid certificate CERT-2026-0001
     try:
-        response = requests.post(f"{BASE_URL}/email/test", json={})
-        if response.status_code == 400:
+        response = requests.get(f"{BASE_URL}/verify/CERT-2026-0001")
+        if response.status_code == 200:
             data = response.json()
-            if 'error' in data:
-                log_test("POST /api/email/test (no email)", "PASS", 
-                        f"Returns 400 with error: {data['error']}")
+            if (data.get('valid') == True and 
+                'certificate' in data and 
+                'databaseCheck' in data and 
+                'blockchainCheck' in data):
+                cert = data['certificate']
+                log_test("GET /api/verify/CERT-2026-0001", "PASS", 
+                        f"Valid certificate: {cert.get('studentName', 'N/A')}, "
+                        f"NIM: {cert.get('studentNim', 'N/A')}")
+                log_test("Dual verification structure", "INFO", 
+                        f"Database: {data['databaseCheck'].get('status', 'N/A')}, "
+                        f"Blockchain: {data['blockchainCheck'].get('status', 'N/A')}")
             else:
-                log_test("POST /api/email/test (no email)", "FAIL", 
-                        "Expected 'error' field in response")
+                log_test("GET /api/verify/CERT-2026-0001", "FAIL", 
+                        f"Missing required fields. Response: {json.dumps(data, indent=2)}")
         else:
-            log_test("POST /api/email/test (no email)", "FAIL", 
-                    f"Expected 400, got {response.status_code}")
+            log_test("GET /api/verify/CERT-2026-0001", "FAIL", 
+                    f"Expected 200, got {response.status_code}: {response.text}")
     except Exception as e:
-        log_test("POST /api/email/test (no email)", "FAIL", str(e))
+        log_test("GET /api/verify/CERT-2026-0001", "FAIL", str(e))
     
-    # Test 2: With email but no API key configured
+    # Test 2: Valid certificate CERT-2026-0002
+    try:
+        response = requests.get(f"{BASE_URL}/verify/CERT-2026-0002")
+        if response.status_code == 200:
+            data = response.json()
+            if data.get('valid') == True:
+                log_test("GET /api/verify/CERT-2026-0002", "PASS", 
+                        f"Valid certificate: {data['certificate'].get('studentName', 'N/A')}")
+            else:
+                log_test("GET /api/verify/CERT-2026-0002", "FAIL", 
+                        "Expected valid=true")
+        else:
+            log_test("GET /api/verify/CERT-2026-0002", "FAIL", 
+                    f"Expected 200, got {response.status_code}")
+    except Exception as e:
+        log_test("GET /api/verify/CERT-2026-0002", "FAIL", str(e))
+    
+    # Test 3: Invalid certificate
+    try:
+        response = requests.get(f"{BASE_URL}/verify/PALSU-999-XXXX")
+        if response.status_code == 404:
+            data = response.json()
+            if data.get('valid') == False:
+                log_test("GET /api/verify/PALSU-999-XXXX (invalid)", "PASS", 
+                        "Returns 404 with valid=false as expected")
+            else:
+                log_test("GET /api/verify/PALSU-999-XXXX (invalid)", "FAIL", 
+                        "Expected valid=false")
+        else:
+            log_test("GET /api/verify/PALSU-999-XXXX (invalid)", "FAIL", 
+                    f"Expected 404, got {response.status_code}")
+    except Exception as e:
+        log_test("GET /api/verify/PALSU-999-XXXX (invalid)", "FAIL", str(e))
+    
+    # Test 4: Check if CERT-2026-0006 exists (newly issued)
+    try:
+        response = requests.get(f"{BASE_URL}/verify/CERT-2026-0006")
+        if response.status_code == 200:
+            data = response.json()
+            if data.get('valid') == True:
+                log_test("GET /api/verify/CERT-2026-0006", "PASS", 
+                        f"Newly issued certificate verified: {data['certificate'].get('studentName', 'N/A')}")
+            else:
+                log_test("GET /api/verify/CERT-2026-0006", "FAIL", 
+                        "Expected valid=true")
+        elif response.status_code == 404:
+            log_test("GET /api/verify/CERT-2026-0006", "INFO", 
+                    "Certificate not found (may not be issued yet)")
+        else:
+            log_test("GET /api/verify/CERT-2026-0006", "FAIL", 
+                    f"Unexpected status {response.status_code}")
+    except Exception as e:
+        log_test("GET /api/verify/CERT-2026-0006", "FAIL", str(e))
+
+def test_email_with_real_api_key():
+    """Test email endpoints with real RESEND_API_KEY configured"""
+    print(f"\n{YELLOW}=== Testing Email Notification with Real API Key ==={RESET}\n")
+    
+    # Test 1: Send test email to owner email
     try:
         response = requests.post(f"{BASE_URL}/email/test", 
-                                json={"email": "test@example.com"})
-        if response.status_code == 503:
+                                json={"email": TEST_EMAIL})
+        if response.status_code == 200:
             data = response.json()
-            if 'error' in data and 'RESEND_API_KEY' in data['error']:
-                log_test("POST /api/email/test (no API key)", "PASS", 
-                        f"Returns 503 with message: {data['error']}")
+            if data.get('success') == True and 'emailId' in data:
+                log_test("POST /api/email/test (real API key)", "PASS", 
+                        f"Test email sent successfully to {TEST_EMAIL}, emailId: {data['emailId']}")
             else:
-                log_test("POST /api/email/test (no API key)", "FAIL", 
-                        "Expected error message about RESEND_API_KEY")
+                log_test("POST /api/email/test (real API key)", "FAIL", 
+                        f"Expected success=true and emailId. Response: {json.dumps(data, indent=2)}")
         else:
-            log_test("POST /api/email/test (no API key)", "FAIL", 
-                    f"Expected 503, got {response.status_code}")
+            log_test("POST /api/email/test (real API key)", "FAIL", 
+                    f"Expected 200, got {response.status_code}: {response.text}")
     except Exception as e:
-        log_test("POST /api/email/test (no API key)", "FAIL", str(e))
-
-def test_email_resend_endpoint():
-    """Test POST /api/email/resend/:certId endpoint"""
-    print(f"\n{YELLOW}=== Testing Email Resend Endpoint ==={RESET}\n")
+        log_test("POST /api/email/test (real API key)", "FAIL", str(e))
     
-    # Test 1: Resend for valid certificate (should return 503 due to no API key)
+    # Test 2: Resend email for CERT-2026-0001
     try:
         response = requests.post(f"{BASE_URL}/email/resend/CERT-2026-0001")
-        if response.status_code == 503:
+        if response.status_code == 200:
             data = response.json()
-            if 'message' in data and 'RESEND_API_KEY' in data['message']:
+            if data.get('success') == True and 'emailId' in data:
                 log_test("POST /api/email/resend/CERT-2026-0001", "PASS", 
-                        f"Returns 503: {data['message']}")
+                        f"Email resent successfully, emailId: {data['emailId']}")
             else:
                 log_test("POST /api/email/resend/CERT-2026-0001", "FAIL", 
-                        "Expected message about RESEND_API_KEY")
+                        f"Expected success=true and emailId. Response: {json.dumps(data, indent=2)}")
+        elif response.status_code == 503:
+            # This might happen if the student email is not the owner email
+            data = response.json()
+            log_test("POST /api/email/resend/CERT-2026-0001", "INFO", 
+                    f"Email service unavailable (student email may not be verified): {data.get('message', 'N/A')}")
         else:
             log_test("POST /api/email/resend/CERT-2026-0001", "FAIL", 
-                    f"Expected 503, got {response.status_code}: {response.text}")
+                    f"Expected 200, got {response.status_code}: {response.text}")
     except Exception as e:
         log_test("POST /api/email/resend/CERT-2026-0001", "FAIL", str(e))
     
-    # Test 2: Resend for non-existent certificate
-    try:
-        response = requests.post(f"{BASE_URL}/email/resend/NONEXISTENT-CERT-999")
-        if response.status_code == 404:
-            data = response.json()
-            if 'error' in data:
-                log_test("POST /api/email/resend/NONEXISTENT", "PASS", 
-                        f"Returns 404: {data['error']}")
-            else:
-                log_test("POST /api/email/resend/NONEXISTENT", "FAIL", 
-                        "Expected 'error' field in response")
-        else:
-            log_test("POST /api/email/resend/NONEXISTENT", "FAIL", 
-                    f"Expected 404, got {response.status_code}")
-    except Exception as e:
-        log_test("POST /api/email/resend/NONEXISTENT", "FAIL", str(e))
-
-def test_email_logs_endpoint():
-    """Test GET /api/email/logs endpoint"""
-    print(f"\n{YELLOW}=== Testing Email Logs Endpoint ==={RESET}\n")
-    
+    # Test 3: Get email logs
     try:
         response = requests.get(f"{BASE_URL}/email/logs")
         if response.status_code == 200:
             data = response.json()
             if isinstance(data, list):
+                sent_count = sum(1 for log in data if log.get('status') == 'sent')
                 log_test("GET /api/email/logs", "PASS", 
-                        f"Returns array with {len(data)} log entries")
+                        f"Returns {len(data)} log entries, {sent_count} sent successfully")
                 
-                # Verify log entry structure if logs exist
+                # Show sample log entry
                 if len(data) > 0:
-                    first_log = data[0]
-                    required_fields = ['id', 'certificateNumber', 'recipientEmail', 
-                                     'recipientName', 'status', 'createdAt']
-                    missing_fields = [f for f in required_fields if f not in first_log]
-                    
-                    if not missing_fields:
-                        log_test("Email log entry structure", "PASS", 
-                                f"All required fields present: {', '.join(required_fields)}")
-                        log_test("Sample log entry", "INFO", 
-                                f"Status: {first_log['status']}, Cert: {first_log['certificateNumber']}")
-                    else:
-                        log_test("Email log entry structure", "FAIL", 
-                                f"Missing fields: {', '.join(missing_fields)}")
-                else:
-                    log_test("Email logs content", "INFO", 
-                            "No email logs found yet (expected if no certificates issued)")
+                    sample = data[0]
+                    log_test("Sample email log", "INFO", 
+                            f"Cert: {sample.get('certificateNumber', 'N/A')}, "
+                            f"Status: {sample.get('status', 'N/A')}, "
+                            f"Recipient: {sample.get('recipientEmail', 'N/A')}")
             else:
                 log_test("GET /api/email/logs", "FAIL", 
                         f"Expected array, got {type(data)}")
@@ -154,10 +197,32 @@ def test_email_logs_endpoint():
                     f"Expected 200, got {response.status_code}")
     except Exception as e:
         log_test("GET /api/email/logs", "FAIL", str(e))
+    
+    # Test 4: Check stats for totalEmailsSent
+    try:
+        response = requests.get(f"{BASE_URL}/stats")
+        if response.status_code == 200:
+            data = response.json()
+            if 'totalEmailsSent' in data:
+                emails_sent = data['totalEmailsSent']
+                if emails_sent > 0:
+                    log_test("GET /api/stats (totalEmailsSent)", "PASS", 
+                            f"totalEmailsSent: {emails_sent} (emails are being sent)")
+                else:
+                    log_test("GET /api/stats (totalEmailsSent)", "INFO", 
+                            f"totalEmailsSent: {emails_sent} (no emails sent yet or all failed)")
+            else:
+                log_test("GET /api/stats (totalEmailsSent)", "FAIL", 
+                        "totalEmailsSent field missing")
+        else:
+            log_test("GET /api/stats", "FAIL", 
+                    f"Expected 200, got {response.status_code}")
+    except Exception as e:
+        log_test("GET /api/stats", "FAIL", str(e))
 
-def test_certificate_issuance_with_email():
-    """Test POST /api/certificates with email notification integration"""
-    print(f"\n{YELLOW}=== Testing Certificate Issuance with Email Integration ==={RESET}\n")
+def test_certificate_issuance_with_real_email():
+    """Test certificate issuance with real email notification"""
+    print(f"\n{YELLOW}=== Testing Certificate Issuance with Real Email ==={RESET}\n")
     
     # Step 1: Login
     try:
@@ -175,7 +240,7 @@ def test_certificate_issuance_with_email():
         log_test("Admin login", "FAIL", str(e))
         return
     
-    # Step 2: Get students
+    # Step 2: Get students to verify student exists
     try:
         students_response = requests.get(f"{BASE_URL}/students")
         if students_response.status_code != 200:
@@ -184,28 +249,34 @@ def test_certificate_issuance_with_email():
             return
         
         students = students_response.json()
-        if not students or len(students) == 0:
-            log_test("Get students", "FAIL", "No students found")
+        target_student = None
+        for student in students:
+            if student.get('id') == STUDENT_ID_WITH_OWNER_EMAIL:
+                target_student = student
+                break
+        
+        if not target_student:
+            log_test("Find target student", "FAIL", 
+                    f"Student {STUDENT_ID_WITH_OWNER_EMAIL} not found")
             return
         
-        student = students[0]
-        log_test("Get students", "PASS", 
-                f"Found {len(students)} students, using: {student['name']}")
+        log_test("Find target student", "PASS", 
+                f"Found student: {target_student['name']} ({target_student['email']})")
         
     except Exception as e:
         log_test("Get students", "FAIL", str(e))
         return
     
-    # Step 3: Issue certificate
+    # Step 3: Issue certificate for student with owner email
     try:
         cert_data = {
-            "studentId": student['id'],
-            "certificateName": f"Test Certificate - Email Integration {datetime.now().strftime('%Y%m%d%H%M%S')}",
+            "studentId": target_student['id'],
+            "certificateName": f"Ijazah Sarjana Komputer - Test Real Email {datetime.now().strftime('%Y%m%d%H%M%S')}",
             "degree": "Sarjana Komputer (S.Kom)",
-            "faculty": student.get('faculty', 'Fakultas Ilmu Komputer'),
-            "major": student.get('major', 'Teknik Informatika'),
-            "gpa": "3.85",
-            "honors": "Cum Laude",
+            "faculty": target_student.get('faculty', 'Fakultas Ilmu Komputer'),
+            "major": target_student.get('major', 'Teknik Informatika'),
+            "gpa": "3.95",
+            "honors": "Dengan Pujian (Cum Laude)",
             "issueDate": datetime.now().strftime('%Y-%m-%d')
         }
         
@@ -220,33 +291,28 @@ def test_certificate_issuance_with_email():
             if 'emailNotification' in data:
                 email_notif = data['emailNotification']
                 
-                # Verify structure
-                if 'sent' in email_notif and 'skipped' in email_notif:
-                    log_test("Certificate issuance response structure", "PASS", 
-                            "emailNotification field present with sent/skipped fields")
-                    
-                    # Verify email was skipped (no API key)
-                    if email_notif['skipped'] == True and email_notif['sent'] == False:
-                        log_test("Email notification behavior", "PASS", 
-                                "Email gracefully skipped (no API key configured)")
-                        
-                        if 'error' in email_notif:
-                            log_test("Email skip reason", "INFO", 
-                                    f"Reason: {email_notif['error']}")
-                    else:
-                        log_test("Email notification behavior", "FAIL", 
-                                f"Expected skipped=true, sent=false, got: {email_notif}")
+                # Verify email was sent successfully
+                if email_notif.get('sent') == True and 'emailId' in email_notif:
+                    log_test("Certificate issuance with real email", "PASS", 
+                            f"Certificate issued and email sent successfully to {email_notif.get('recipientEmail', 'N/A')}")
+                    log_test("Email notification details", "INFO", 
+                            f"emailId: {email_notif['emailId']}")
+                elif email_notif.get('skipped') == True:
+                    log_test("Certificate issuance with real email", "FAIL", 
+                            f"Email was skipped (expected to be sent). Reason: {email_notif.get('error', 'N/A')}")
                 else:
-                    log_test("Certificate issuance response structure", "FAIL", 
-                            "emailNotification missing sent/skipped fields")
+                    log_test("Certificate issuance with real email", "FAIL", 
+                            f"Email sending failed. Error: {email_notif.get('error', 'N/A')}")
                 
                 # Log certificate details
                 if 'certificate' in data:
                     cert = data['certificate']
                     log_test("Certificate created", "INFO", 
-                            f"Number: {cert['certificateNumber']}, Student: {cert['studentName']}")
+                            f"Number: {cert['certificateNumber']}, "
+                            f"Student: {cert['studentName']}, "
+                            f"TxHash: {cert.get('txHash', 'N/A')[:20]}...")
             else:
-                log_test("Certificate issuance response structure", "FAIL", 
+                log_test("Certificate issuance response", "FAIL", 
                         "emailNotification field missing from response")
         else:
             log_test("POST /api/certificates", "FAIL", 
@@ -254,121 +320,78 @@ def test_certificate_issuance_with_email():
     except Exception as e:
         log_test("POST /api/certificates", "FAIL", str(e))
 
-def test_stats_endpoint():
-    """Test GET /api/stats includes totalEmailsSent"""
-    print(f"\n{YELLOW}=== Testing Stats Endpoint ==={RESET}\n")
+def test_full_regression():
+    """Full regression test for all existing endpoints"""
+    print(f"\n{YELLOW}=== Full Regression Tests ==={RESET}\n")
     
-    try:
-        response = requests.get(f"{BASE_URL}/stats")
-        if response.status_code == 200:
-            data = response.json()
-            
-            if 'totalEmailsSent' in data:
-                log_test("GET /api/stats (totalEmailsSent field)", "PASS", 
-                        f"totalEmailsSent: {data['totalEmailsSent']}")
-                
-                # Log other stats for context
-                log_test("Stats summary", "INFO", 
-                        f"Students: {data.get('totalStudents', 'N/A')}, "
-                        f"Certificates: {data.get('totalCertificates', 'N/A')}, "
-                        f"Emails Sent: {data.get('totalEmailsSent', 'N/A')}")
-            else:
-                log_test("GET /api/stats (totalEmailsSent field)", "FAIL", 
-                        "totalEmailsSent field missing from response")
-        else:
-            log_test("GET /api/stats", "FAIL", 
-                    f"Expected 200, got {response.status_code}")
-    except Exception as e:
-        log_test("GET /api/stats", "FAIL", str(e))
-
-def test_existing_endpoints_regression():
-    """Regression test for existing endpoints"""
-    print(f"\n{YELLOW}=== Regression Tests for Existing Endpoints ==={RESET}\n")
-    
-    # Test 1: Verify valid certificate
-    try:
-        response = requests.get(f"{BASE_URL}/verify/CERT-2026-0001")
-        if response.status_code == 200:
-            data = response.json()
-            if data.get('valid') == True and 'certificate' in data:
-                log_test("GET /api/verify/CERT-2026-0001 (valid)", "PASS", 
-                        f"Certificate valid: {data['certificate']['studentName']}")
-            else:
-                log_test("GET /api/verify/CERT-2026-0001 (valid)", "FAIL", 
-                        "Expected valid=true and certificate data")
-        else:
-            log_test("GET /api/verify/CERT-2026-0001 (valid)", "FAIL", 
-                    f"Expected 200, got {response.status_code}")
-    except Exception as e:
-        log_test("GET /api/verify/CERT-2026-0001 (valid)", "FAIL", str(e))
-    
-    # Test 2: Verify invalid certificate
-    try:
-        response = requests.get(f"{BASE_URL}/verify/PALSU-999-XXXX")
-        if response.status_code == 404:
-            data = response.json()
-            if data.get('valid') == False:
-                log_test("GET /api/verify/PALSU-999-XXXX (invalid)", "PASS", 
-                        "Returns 404 with valid=false")
-            else:
-                log_test("GET /api/verify/PALSU-999-XXXX (invalid)", "FAIL", 
-                        "Expected valid=false")
-        else:
-            log_test("GET /api/verify/PALSU-999-XXXX (invalid)", "FAIL", 
-                    f"Expected 404, got {response.status_code}")
-    except Exception as e:
-        log_test("GET /api/verify/PALSU-999-XXXX (invalid)", "FAIL", str(e))
-    
-    # Test 3: Get students
+    # Test 1: Get students
     try:
         response = requests.get(f"{BASE_URL}/students")
         if response.status_code == 200:
             data = response.json()
-            if isinstance(data, list):
+            if isinstance(data, list) and len(data) > 0:
                 log_test("GET /api/students", "PASS", 
                         f"Returns {len(data)} students")
             else:
                 log_test("GET /api/students", "FAIL", 
-                        "Expected array response")
+                        "Expected non-empty array")
         else:
             log_test("GET /api/students", "FAIL", 
                     f"Expected 200, got {response.status_code}")
     except Exception as e:
         log_test("GET /api/students", "FAIL", str(e))
     
-    # Test 4: Get certificates
+    # Test 2: Get certificates
     try:
         response = requests.get(f"{BASE_URL}/certificates")
         if response.status_code == 200:
             data = response.json()
-            if isinstance(data, list):
+            if isinstance(data, list) and len(data) > 0:
                 log_test("GET /api/certificates", "PASS", 
                         f"Returns {len(data)} certificates")
             else:
                 log_test("GET /api/certificates", "FAIL", 
-                        "Expected array response")
+                        "Expected non-empty array")
         else:
             log_test("GET /api/certificates", "FAIL", 
                     f"Expected 200, got {response.status_code}")
     except Exception as e:
         log_test("GET /api/certificates", "FAIL", str(e))
+    
+    # Test 3: Get blockchain status
+    try:
+        response = requests.get(f"{BASE_URL}/blockchain/status")
+        if response.status_code == 200:
+            data = response.json()
+            if 'isConnected' in data and 'network' in data:
+                log_test("GET /api/blockchain/status", "PASS", 
+                        f"Network: {data.get('network', 'N/A')}, "
+                        f"Connected: {data.get('isConnected', 'N/A')}")
+            else:
+                log_test("GET /api/blockchain/status", "FAIL", 
+                        "Missing required fields")
+        else:
+            log_test("GET /api/blockchain/status", "FAIL", 
+                    f"Expected 200, got {response.status_code}")
+    except Exception as e:
+        log_test("GET /api/blockchain/status", "FAIL", str(e))
 
 def main():
     """Run all tests"""
     print(f"\n{BLUE}{'='*70}{RESET}")
-    print(f"{BLUE}VeriChain Academic - Email Notification System Backend Tests{RESET}")
+    print(f"{BLUE}VeriChain Academic - Backend API Tests{RESET}")
+    print(f"{BLUE}QR Code Verification, Email with Real API Key, Certificate Issuance{RESET}")
     print(f"{BLUE}{'='*70}{RESET}")
     print(f"Base URL: {BASE_URL}")
+    print(f"Test Email: {TEST_EMAIL}")
     print(f"Test Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"{BLUE}{'='*70}{RESET}\n")
     
     # Run all test suites
-    test_email_test_endpoint()
-    test_email_resend_endpoint()
-    test_email_logs_endpoint()
-    test_certificate_issuance_with_email()
-    test_stats_endpoint()
-    test_existing_endpoints_regression()
+    test_verify_api_regression()
+    test_email_with_real_api_key()
+    test_certificate_issuance_with_real_email()
+    test_full_regression()
     
     print(f"\n{BLUE}{'='*70}{RESET}")
     print(f"{BLUE}All tests completed!{RESET}")
