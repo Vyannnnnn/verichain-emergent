@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { downloadCertificatePDF, downloadQRCodeImage } from '@/lib/certificate-download'
+import LandingPage from '@/components/LandingPage'
 
 export function App() {
   // Navigation & View State: 'home' | 'verify' | 'login' | 'dashboard' | 'students' | 'certificates' | 'blockchain'
@@ -423,7 +424,7 @@ export function App() {
   )
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-indigo-500 selection:text-white">
+    <div suppressHydrationWarning className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-indigo-500 selection:text-white">
       {/* 1. Global Navigation Bar */}
       <header className="sticky top-0 z-50 backdrop-blur-xl bg-slate-950/80 border-b border-slate-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
@@ -571,266 +572,14 @@ export function App() {
         {/* VIEW 1: HOME / LANDING PAGE */}
         {/* ========================================================= */}
         {currentView === 'home' && (
-          <div>
-            {/* Hero Section */}
-            <section className="relative pt-12 pb-20 overflow-hidden">
-              {/* Glowing Background Orbs */}
-              <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[350px] bg-indigo-600/20 blur-[130px] rounded-full pointer-events-none" />
-              <div className="absolute top-1/3 left-1/4 w-[400px] h-[300px] bg-blue-600/15 blur-[120px] rounded-full pointer-events-none" />
-
-              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-                <div className="text-center max-w-3xl mx-auto">
-                  {/* Badge */}
-                  <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs sm:text-sm font-semibold mb-6">
-                    <Sparkles className="w-4 h-4 text-indigo-400" />
-                    Standar Baru Verifikasi Akademik Kriptografis
-                  </div>
-
-                  <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white leading-[1.15] mb-6">
-                    Verifikasi Ijazah & Sertifikat Akademik{' '}
-                    <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-cyan-400 to-blue-400">
-                      Berbasis Blockchain
-                    </span>
-                  </h1>
-
-                  <p className="text-base sm:text-lg text-slate-300 font-normal leading-relaxed mb-10 max-w-2xl mx-auto">
-                    Mencegah pemalsuan dokumen akademik dengan teknologi pencatatan permanen on-chain Ethereum/Polygon. Cepat, transparan, dan dapat diverifikasi oleh siapa saja dalam hitungan detik.
-                  </p>
-
-                  {/* Main Quick Search Verification Box */}
-                  <div className="max-w-2xl mx-auto bg-slate-900/90 backdrop-blur-2xl p-2.5 sm:p-3.5 rounded-2xl border border-indigo-500/30 shadow-2xl shadow-indigo-950/80">
-                    <form
-                      onSubmit={(e) => {
-                        e.preventDefault()
-                        handleVerify(searchCertNumber)
-                      }}
-                      className="flex flex-col sm:flex-row items-stretch gap-2.5"
-                    >
-                      <div className="relative flex-1">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                        <input
-                          type="text"
-                          value={searchCertNumber}
-                          onChange={(e) => setSearchCertNumber(e.target.value)}
-                          placeholder="Masukkan Nomor Sertifikat (contoh: CERT-2026-0001)"
-                          className="w-full pl-12 pr-4 py-3.5 bg-slate-950/80 text-white placeholder-slate-500 rounded-xl border border-slate-700/80 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-medium"
-                        />
-                      </div>
-                      <button
-                        type="submit"
-                        disabled={isVerifying}
-                        className="px-7 py-3.5 rounded-xl bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white font-bold text-sm shadow-lg shadow-indigo-600/30 transition-all flex items-center justify-center gap-2 shrink-0 disabled:opacity-50"
-                      >
-                        {isVerifying ? (
-                          <>
-                            <RefreshCw className="w-4 h-4 animate-spin" />
-                            Memverifikasi...
-                          </>
-                        ) : (
-                          <>
-                            <FileCheck className="w-4 h-4" />
-                            Verifikasi Sekarang
-                          </>
-                        )}
-                      </button>
-                    </form>
-
-                    {/* Quick Demo Certificate Buttons */}
-                    <div className="mt-3.5 pt-3 border-t border-slate-800/80 flex flex-wrap items-center justify-center gap-2 text-xs text-slate-400">
-                      <span className="font-semibold text-slate-300">Coba Demo Sertifikat:</span>
-                      <button
-                        type="button"
-                        data-testid="demo-cert-valid-1"
-                        onClick={() => handleVerify('CERT-2026-0001')}
-                        className="px-2.5 py-1 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 transition-all font-mono"
-                      >
-                        CERT-2026-0001 (Valid)
-                      </button>
-                      <button
-                        type="button"
-                        data-testid="demo-cert-valid-2"
-                        onClick={() => handleVerify('CERT-2026-0002')}
-                        className="px-2.5 py-1 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 transition-all font-mono"
-                      >
-                        CERT-2026-0002 (Valid)
-                      </button>
-                      <button
-                        type="button"
-                        data-testid="demo-cert-invalid"
-                        onClick={() => handleVerify('PALSU-999-XXXX')}
-                        className="px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 transition-all font-mono"
-                      >
-                        PALSU-999-XXXX (Invalid Test)
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Key Statistics Cards */}
-                <div className="mt-16 grid grid-cols-2 lg:grid-cols-4 gap-4 max-w-5xl mx-auto">
-                  <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800/80 backdrop-blur text-center">
-                    <p className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">1,280+</p>
-                    <p className="text-xs sm:text-sm font-medium text-slate-400 mt-1">Sertifikat Terverifikasi</p>
-                  </div>
-                  <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800/80 backdrop-blur text-center">
-                    <p className="text-3xl sm:text-4xl font-extrabold text-indigo-400 tracking-tight">48+</p>
-                    <p className="text-xs sm:text-sm font-medium text-slate-400 mt-1">Fakultas & Kampus Mitra</p>
-                  </div>
-                  <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800/80 backdrop-blur text-center">
-                    <p className="text-3xl sm:text-4xl font-extrabold text-emerald-400 tracking-tight">100%</p>
-                    <p className="text-xs sm:text-sm font-medium text-slate-400 mt-1">Imutabilitas Blockchain</p>
-                  </div>
-                  <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800/80 backdrop-blur text-center">
-                    <p className="text-3xl sm:text-4xl font-extrabold text-cyan-400 tracking-tight">&lt; 1s</p>
-                    <p className="text-xs sm:text-sm font-medium text-slate-400 mt-1">Waktu Validasi Instan</p>
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            {/* Visual Banner & Trust Section */}
-            <section className="py-12 border-y border-slate-800/80 bg-slate-900/30">
-              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
-                  <div className="relative rounded-2xl overflow-hidden border border-slate-800 h-56 group">
-                    <Image
-                      src="https://images.unsplash.com/photo-1541339907198-e08756dedf3f"
-                      alt="Wisuda Kampus"
-                      fill
-                      className="object-cover group-hover:scale-105 transition-transform duration-500 opacity-75"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent p-5 flex flex-col justify-end">
-                      <span className="text-xs font-semibold text-indigo-400 uppercase tracking-wider">Perlindungan Ijazah</span>
-                      <h4 className="text-base font-bold text-white">Kelulusan Resmi Terakreditasi</h4>
-                    </div>
-                  </div>
-
-                  <div className="relative rounded-2xl overflow-hidden border border-slate-800 h-56 group">
-                    <Image
-                      src="https://images.unsplash.com/photo-1589330694653-ded6df03f754"
-                      alt="Diploma Certificate"
-                      fill
-                      className="object-cover group-hover:scale-105 transition-transform duration-500 opacity-75"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent p-5 flex flex-col justify-end">
-                      <span className="text-xs font-semibold text-cyan-400 uppercase tracking-wider">Keaslian Dokumen</span>
-                      <h4 className="text-base font-bold text-white">QR Code & Kriptografi On-Chain</h4>
-                    </div>
-                  </div>
-
-                  <div className="relative rounded-2xl overflow-hidden border border-slate-800 h-56 group">
-                    <Image
-                      src="https://images.unsplash.com/photo-1633265486064-086b219458ec"
-                      alt="Keamanan Blockchain"
-                      fill
-                      className="object-cover group-hover:scale-105 transition-transform duration-500 opacity-75"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent p-5 flex flex-col justify-end">
-                      <span className="text-xs font-semibold text-emerald-400 uppercase tracking-wider">Smart Contract</span>
-                      <h4 className="text-base font-bold text-white">Ledger Terdesentralisasi Permanen</h4>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            {/* Core Features Showcase */}
-            <section className="py-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="text-center max-w-2xl mx-auto mb-16">
-                <span className="text-xs font-bold uppercase tracking-widest text-indigo-400">Keunggulan Sistem</span>
-                <h2 className="text-3xl font-extrabold text-white mt-2">Mengapa VeriChain Academic?</h2>
-                <p className="text-slate-400 text-sm mt-3">
-                  Solusi terpadu bagi universitas, politeknik, dan institusi pendidikan dalam menerbitkan kredensial digital berstandar global.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div className="p-6 rounded-2xl bg-slate-900/50 border border-slate-800 hover:border-indigo-500/40 transition-all hover:-translate-y-1">
-                  <div className="w-12 h-12 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 mb-5">
-                    <Lock className="w-6 h-6" />
-                  </div>
-                  <h3 className="text-lg font-bold text-white mb-2">Imutabilitas Blockchain</h3>
-                  <p className="text-slate-400 text-sm leading-relaxed">
-                    Setiap nomor sertifikat di-hash dengan standar kriptografi SHA-256/Keccak256 dan dicatat di smart contract yang tidak dapat diedit atau dihapus.
-                  </p>
-                </div>
-
-                <div className="p-6 rounded-2xl bg-slate-900/50 border border-slate-800 hover:border-blue-500/40 transition-all hover:-translate-y-1">
-                  <div className="w-12 h-12 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 mb-5">
-                    <CheckCircle2 className="w-6 h-6" />
-                  </div>
-                  <h3 className="text-lg font-bold text-white mb-2">Dual-Layer Verification</h3>
-                  <p className="text-slate-400 text-sm leading-relaxed">
-                    Verifikasi dua lapis secara independen: pencocokan data pangkalan data kampus dan validasi ledger blockchain Ethereum/Polygon.
-                  </p>
-                </div>
-
-                <div className="p-6 rounded-2xl bg-slate-900/50 border border-slate-800 hover:border-cyan-500/40 transition-all hover:-translate-y-1">
-                  <div className="w-12 h-12 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 mb-5">
-                    <QrCode className="w-6 h-6" />
-                  </div>
-                  <h3 className="text-lg font-bold text-white mb-2">QR Code Level H</h3>
-                  <p className="text-slate-400 text-sm leading-relaxed">
-                    Dilengkapi QR code berketahanan koreksi kesalahan tinggi untuk pemindaian instan oleh perekrut kerja, instansi, atau kedutaan.
-                  </p>
-                </div>
-
-                <div className="p-6 rounded-2xl bg-slate-900/50 border border-slate-800 hover:border-emerald-500/40 transition-all hover:-translate-y-1">
-                  <div className="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 mb-5">
-                    <Building2 className="w-6 h-6" />
-                  </div>
-                  <h3 className="text-lg font-bold text-white mb-2">Portal Institusi Terpadu</h3>
-                  <p className="text-slate-400 text-sm leading-relaxed">
-                    Kelola data mahasiswa, terbitkan ijazah digital secara langsung, dan pantau status smart contract melalui dashboard admin.
-                  </p>
-                </div>
-              </div>
-            </section>
-
-            {/* How It Works Section */}
-            <section className="py-16 bg-slate-900/40 border-t border-slate-800">
-              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="text-center max-w-2xl mx-auto mb-14">
-                  <span className="text-xs font-bold uppercase tracking-widest text-cyan-400">Alur Kerja Sistem</span>
-                  <h2 className="text-3xl font-extrabold text-white mt-2">Bagaimana Proses Verifikasi Bekerja?</h2>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 relative">
-                  <div className="p-6 rounded-2xl bg-slate-950 border border-slate-800 relative">
-                    <div className="text-3xl font-black text-indigo-500/30 mb-3 font-mono">01</div>
-                    <h4 className="text-base font-bold text-white mb-2">Admin Menerbitkan</h4>
-                    <p className="text-xs text-slate-400 leading-relaxed">
-                      Admin kampus memilih data mahasiswa dan menerbitkan sertifikat dengan nomor unik terstandar.
-                    </p>
-                  </div>
-
-                  <div className="p-6 rounded-2xl bg-slate-950 border border-slate-800 relative">
-                    <div className="text-3xl font-black text-blue-500/30 mb-3 font-mono">02</div>
-                    <h4 className="text-base font-bold text-white mb-2">Pencatatan On-Chain</h4>
-                    <p className="text-xs text-slate-400 leading-relaxed">
-                      Sistem memanggil smart contract Ethereum/Polygon dan menandatangani hash sertifikat dengan wallet admin.
-                    </p>
-                  </div>
-
-                  <div className="p-6 rounded-2xl bg-slate-950 border border-slate-800 relative">
-                    <div className="text-3xl font-black text-cyan-500/30 mb-3 font-mono">03</div>
-                    <h4 className="text-base font-bold text-white mb-2">Pemberian QR Code</h4>
-                    <p className="text-xs text-slate-400 leading-relaxed">
-                      QR code unik dihasilkan dan terhubung langsung ke halaman verifikasi publik permanen.
-                    </p>
-                  </div>
-
-                  <div className="p-6 rounded-2xl bg-slate-950 border border-slate-800 relative">
-                    <div className="text-3xl font-black text-emerald-500/30 mb-3 font-mono">04</div>
-                    <h4 className="text-base font-bold text-white mb-2">Dual Verifikasi Publik</h4>
-                    <p className="text-xs text-slate-400 leading-relaxed">
-                      Pihak eksternal memindai QR code untuk memeriksa validitas database dan pembuktian smart contract.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </section>
-          </div>
+          <LandingPage
+            searchCertNumber={searchCertNumber}
+            setSearchCertNumber={setSearchCertNumber}
+            handleVerify={handleVerify}
+            isVerifying={isVerifying}
+            stats={stats}
+            setCurrentView={setCurrentView}
+          />
         )}
 
         {/* ========================================================= */}
@@ -2202,7 +1951,7 @@ export function App() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
           <div className="flex items-center gap-2">
             <Shield className="w-4 h-4 text-indigo-400" />
-            <span>&copy; {new Date().getFullYear()} <strong>VeriChain Academic</strong>. Standardized Ethereum/Polygon Digital Credential Ledger.</span>
+            <span suppressHydrationWarning>&copy; {new Date().getFullYear()} <strong>VeriChain Academic</strong>. Standardized Ethereum/Polygon Digital Credential Ledger.</span>
           </div>
           <div className="flex items-center gap-4">
             <span>Polygon Amoy Testnet (80002)</span>

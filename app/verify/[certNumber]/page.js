@@ -67,7 +67,7 @@ export default function VerifyPage() {
   const bcCheck = verificationResult?.blockchainCheck
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-indigo-500 selection:text-white">
+    <div suppressHydrationWarning className="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-indigo-500 selection:text-white">
       {/* Header */}
       <header className="sticky top-0 z-50 backdrop-blur-xl bg-slate-950/80 border-b border-slate-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
@@ -352,7 +352,7 @@ export default function VerifyPage() {
       {/* Footer */}
       <footer className="mt-auto border-t border-slate-800/80 bg-slate-950 py-6">
         <div className="max-w-7xl mx-auto px-4 text-center text-xs text-slate-500">
-          <span>&copy; {new Date().getFullYear()} <strong>VeriChain Academic</strong> — Verifikasi Sertifikat Digital Berbasis Blockchain</span>
+          <span suppressHydrationWarning>&copy; {new Date().getFullYear()} <strong>VeriChain Academic</strong> — Verifikasi Sertifikat Digital Berbasis Blockchain</span>
         </div>
       </footer>
     </div>

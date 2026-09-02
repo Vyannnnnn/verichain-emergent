@@ -607,3 +607,30 @@ backend:
 agent_communication:
   - agent: "testing"
     message: "Backend testing completed successfully. All 17 test cases passed. QR Code verification API working for valid and invalid certificates with dual verification (database + blockchain). Email notification system working with real RESEND_API_KEY - test emails, resend emails, and automatic emails on certificate issuance all successful. Certificate issuance with real email to fian88518@gmail.com working end-to-end. Full regression passed - students, certificates, and blockchain status endpoints all working. No critical issues found."
+
+
+agent_communication:
+  - agent: "main"
+    message: "Fixed React hydration mismatch caused by browser extensions (bis_skin_checked, bis_register, --wh-aurora-intensity). Added suppressHydrationWarning to <html>, <body> in layout.js, and root divs + footer year spans in page.js and verify/[certNumber]/page.js. This is the standard Next.js fix for browser-extension-induced hydration mismatches. Requesting frontend testing to verify no console errors."
+
+frontend:
+  - task: "Hydration Mismatch Fix"
+    implemented: true
+    working: "NA"
+    file: "/app/app/layout.js, /app/app/page.js, /app/app/verify/[certNumber]/page.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added suppressHydrationWarning to html, body, root divs, and dynamic date spans. Browser extension attributes (bis_skin_checked etc) should no longer cause hydration warnings."
+
+test_plan:
+  current_focus:
+    - "Hydration Mismatch Fix"
+    - "Landing page renders without console errors"
+    - "/verify/CERT-2026-0001 renders without console errors"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
